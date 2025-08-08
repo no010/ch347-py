@@ -85,6 +85,9 @@ class CH347:
     # Define the callback function type
     NOTIFY_ROUTINE = ctypes.CFUNCTYPE(None, ctypes.c_ulong)
 
+    # Define the callback function type
+    INTERRUPT_ROUTINE = ctypes.CFUNCTYPE(None, ctypes.POINTER(ctypes.c_ubyte))
+    
     INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
 
     def __init__(self, device_index=0, dll_path=None):
@@ -107,6 +110,8 @@ class CH347:
 
         # 创建回调函数对象并绑定到实例属性
         self.callback_func = self.NOTIFY_ROUTINE(self.event_callback)
+        # 创建中断回调函数对象并绑定到实例属性
+        self.interrupt_cb_func = self.INTERRUPT_ROUTINE(self.interrupt_callback)
 
         # Set the function argument types and return type for CH347OpenDevice
         self.ch347dll.CH347OpenDevice.argtypes = [ctypes.c_ulong]
@@ -250,6 +255,38 @@ class CH347:
         ]
         self.ch347dll.CH347StreamI2C.restype = ctypes.c_bool
 
+        self.ch347dll.CH347GPIO_Get.argtypes = [
+            ctypes.c_ulong,
+            ctypes.POINTER(ctypes.c_ubyte),
+            ctypes.POINTER(ctypes.c_ubyte),
+        ]
+        self.ch347dll.CH347GPIO_Get.restype = ctypes.c_bool
+        
+        self.ch347dll.CH347GPIO_Set.argtypes = [
+            ctypes.c_ulong,
+            ctypes.c_ubyte,            
+            ctypes.c_ubyte,
+            ctypes.c_ubyte,
+        ]
+        self.ch347dll.CH347GPIO_Set.restype = ctypes.c_bool
+        
+        
+        self.ch347dll.CH347SetIntRoutine.argtypes = [
+            ctypes.c_ulong,
+            ctypes.c_ubyte,            
+            ctypes.c_ubyte,
+            ctypes.c_ubyte,
+            ctypes.c_ubyte,
+            self.INTERRUPT_ROUTINE,
+        ]
+        self.ch347dll.CH347SetIntRoutine.restype = ctypes.c_bool
+        
+        self.ch347dll.CH347ReadInter.argtypes = [ctypes.c_ulong, ctypes.POINTER(ctypes.c_ubyte)]
+        self.ch347dll.CH347ReadInter.restype = ctypes.c_bool
+        
+        self.ch347dll.CH347AbortInter.argtypes = [ctypes.c_ulong]
+        self.ch347dll.CH347AbortInter.restype = ctypes.c_bool
+        
     def list_devices(self):
         # List all devices
         num_devices = 0
@@ -278,6 +315,13 @@ class CH347:
             # Device insertion event
             print("Device inserted")
 
+    @INTERRUPT_ROUTINE
+    def interrupt_callback(self, istatus):
+        # Callback function implementation
+        # Cast to pointer to array of 8 unsigned bytes
+        byte_array = ctypes.cast(istatus, ctypes.POINTER(ctypes.c_ubyte * 8)).contents
+        print("Interrupt received:", ' '.join(f'0x{b:02X}' for b in byte_array))
+            
     def open_device(self):
         """
         Open USB device.
@@ -917,3 +961,90 @@ class CH347:
         )
 
         return result
+
+    def gpio_get(self, io_dir, io_data):
+        """
+        Get GPIO Direction and Pin Level of CH347
+
+        Args:
+            index (int):               Specifies the device index.
+            io_dir (ctypes.c_void_p):  GPIO direction: bits 0–7 correspond to GPIO0–GPIO7. 0 = input; 1 = output.
+            io_data (ctypes.c_void_p): GPIO level: bits 0–7 correspond to GPIO0–GPIO7. 0 = low level; 1 = high level.
+        """
+        dir_val = ctypes.c_ubyte(0)
+        data_val = ctypes.c_ubyte(0)
+        result = self.ch347dll.CH347GPIO_Get(
+            self.device_index, ctypes.byref(dir_val), ctypes.byref(data_val)
+        )
+        io_dir[0] = dir_val.value
+        io_data[0] = data_val.value
+        return result
+        
+
+    def gpio_set(self, io_mask, io_dir, io_data):
+        """
+        Get the GPIO direction and pin level values of CH347.
+
+        Args:
+            index (int): Specifies the device index.
+            io_mask (int): Data valid mask: bits 0-7 correspond to GPIO0-7.
+            io_dir (int): Sets the I/O direction; if a bit is 0, the corresponding pin is input; if a bit is 1, the corresponding pin is output. GPIO0-7 correspond to bits 0-7.
+            io_data (int): Output data; if the I/O direction is output, then when a bit is 0, the corresponding pin outputs a low level; when a bit is 1, it outputs a high level.
+        """
+        result = self.ch347dll.CH347GPIO_Set(
+            self.device_index, io_mask, io_dir, io_data
+        )
+        return result
+        
+    def set_interrupt(self, int0_pin, int0_mode, int1_pin, int1_mode, interrupt_callback_func=interrupt_callback):
+        """
+        Set CH347 GPIO Interrupt Service Routine
+        
+        Args:
+            int0_pin (int): Interrupt GPIO pin number 0-7 or >7 to disable
+            int0_mode (int): Interrupt mode for int0 (0=falling,1=rising,2=both,3=reserved)
+            int1_pin (int): Interrupt GPIO pin number 0-7 or >7 to disable
+            int1_mode (int): Interrupt mode for int1 (same as int0_mode)
+            interrupt_callback_func (callable or None): Callback function or None to disable ISR
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+
+        if interrupt_callback_func is None:
+            # Create a NULL callback pointer to disable interrupt
+            self.interrupt_cb_func = ctypes.cast(0, self.INTERRUPT_ROUTINE)
+        else:
+            # Wrap the Python callback with the C function prototype
+            self.interrupt_cb_func = self.INTERRUPT_ROUTINE(interrupt_callback_func)
+
+        result = self.ch347dll.CH347SetIntRoutine(
+            self.device_index,int0_pin,int0_mode,int1_pin,int1_mode,self.interrupt_cb_func
+        )
+        return result
+        
+    def read_interrupt_status(self, istatus):
+        """
+        This function is used to read interrupt data
+        Args:
+            iIndex:  Specifies the device index to operate on
+            iStatus: Pointer to a byte used to store the read GPIO pin status data; refer to the bit description below
+        Returns:
+            bool: Returns True if successful, False otherwise.            
+        """
+        # Create a buffer for the serial number
+        int_val = (ctypes.c_ubyte * 8)()
+        #result = self.ch347dll.CH347ReadInter(self.device_index, int_val)
+        result = False
+        print("there is error for this function")
+        istatus[:] = list(int_val)
+        return result       
+        
+
+    def abort_interrupt(self):
+        """
+        Cancel GPIO Interrupt Service
+        Returns:
+            bool: Returns True if successful, False otherwise.
+        """
+        return self.ch347dll.CH347AbortInter(self.device_index)        
