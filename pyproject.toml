@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [
-    { name = "Peter", email = "pengwon@example.com" }
+    { name = "Peter" }
 ]
 maintainers = [
-    { name = "Peter", email = "pengwon@example.com" }
+    { name = "Peter" }
 ]
 keywords = ["ch347", "usb", "spi", "i2c", "uart", "jtag"]
 classifiers = [
@@ -31,13 +31,6 @@ classifiers = [
     "Topic :: System :: Hardware :: Hardware Drivers",
 ]
 dependencies = []
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "numpy>=1.20.0",
-    "matplotlib>=3.3.0",
-]
 
 [project.urls]
 Homepage = "https://github.com/no010/ch347-py"
