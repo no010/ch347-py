@@ -21,7 +21,7 @@ pip install ch347-py
 使用uv进行开发（推荐）：
 
 ```bash
-git clone https://github.com/no010/ch347-py.git
+git clone https://github.com/pengwon/ch347-py.git
 cd ch347-py
 
 # 安装uv（如果尚未安装）
@@ -39,7 +39,7 @@ source .venv/bin/activate  # Linux/macOS
 使用传统方式：
 
 ```bash
-git clone https://github.com/no010/ch347-py.git
+git clone https://github.com/pengwon/ch347-py.git
 cd ch347-py
 pip install -e .
 ```

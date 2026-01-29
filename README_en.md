@@ -21,7 +21,7 @@ pip install ch347-py
 Using uv for development (recommended):
 
 ```bash
-git clone https://github.com/no010/ch347-py.git
+git clone https://github.com/pengwon/ch347-py.git
 cd ch347-py
 
 # Install uv (if not already installed)
@@ -39,7 +39,7 @@ source .venv/bin/activate  # Linux/macOS
 Using traditional method:
 
 ```bash
-git clone https://github.com/no010/ch347-py.git
+git clone https://github.com/pengwon/ch347-py.git
 cd ch347-py
 pip install -e .
 ```
