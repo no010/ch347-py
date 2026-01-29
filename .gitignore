@@ -130,7 +130,7 @@ venv.bak/
 
 # uv
 .python-version
-uv.lock
+# uv.lock - Commit lockfile for reproducible builds with uv
 
 # Spyder project settings
 .spyderproject
